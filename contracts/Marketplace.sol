@@ -6,25 +6,25 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Marketplace is Ownable {
     struct MarketItem {
-        uint256 itemId;
+        uint32 itemId;
         address nftContract;
-        uint256 tokenId;
+        uint32 tokenId;
         address payable seller;
         address payable owner;
-        uint256 price;
+        uint128 price;
         bool sold;
     }
 
-    uint256 public itemCounter;
-    mapping(uint256 => MarketItem) public marketItems;
+    uint32 public itemCounter;
+    mapping(uint32 => MarketItem) public marketItems;
 
     event MarketItemCreated(
-        uint256 indexed itemId,
+        uint32 indexed itemId,
         address indexed nftContract,
-        uint256 indexed tokenId,
+        uint32 indexed tokenId,
         address seller,
         address owner,
-        uint256 price,
+        uint128 price,
         bool sold
     );
 
@@ -32,13 +32,13 @@ contract Marketplace is Ownable {
 
     function createMarketItem(
         address nftContract,
-        uint256 tokenId,
-        uint256 price
+        uint32 tokenId,
+        uint128 price
     ) public payable {
         require(price > 0, "Price must be at least 1 wei");
 
         itemCounter += 1;
-        uint256 itemId = itemCounter;
+        uint32 itemId = itemCounter;
 
         marketItems[itemId] = MarketItem(
             itemId,
@@ -63,7 +63,7 @@ contract Marketplace is Ownable {
         );
     }
 
-    function purchaseMarketItem(uint256 itemId) public payable {
+    function purchaseMarketItem(uint32 itemId) public payable {
         MarketItem storage item = marketItems[itemId];
         require(msg.value == item.price, "Please submit the asking price");
 
@@ -74,12 +74,12 @@ contract Marketplace is Ownable {
     }
 
     function getUserNFTs(address user) public view returns (MarketItem[] memory) {
-        uint256 itemCount = itemCounter;
-        uint256 userItemCount = 0;
-        uint256 currentIndex = 0;
+        uint32 itemCount = itemCounter;
+        uint32 userItemCount = 0;
+        uint32 currentIndex = 0;
 
         // Count the number of NFTs owned by the user
-        for (uint256 i = 1; i <= itemCount; i++) {
+        for (uint32 i = 1; i <= itemCount; i++) {
             if (marketItems[i].owner == user) {
                 userItemCount += 1;
             }
@@ -89,7 +89,7 @@ contract Marketplace is Ownable {
         MarketItem[] memory userItems = new MarketItem[](userItemCount);
 
         // Populate the array with the user's NFTs
-        for (uint256 i = 1; i <= itemCount; i++) {
+        for (uint32 i = 1; i <= itemCount; i++) {
             if (marketItems[i].owner == user) {
                 userItems[currentIndex] = marketItems[i];
                 currentIndex += 1;

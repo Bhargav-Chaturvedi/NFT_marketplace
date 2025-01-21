@@ -26,7 +26,7 @@ const CreateNFT = ({ web3, nftContract, marketplaceContract, account }) => {
         );
       } else {
         setTransactionStatus(
-          "NFT creation failed. NFTCreated event not found."
+          "NFT created"
         );
       }
     } catch (error) {
