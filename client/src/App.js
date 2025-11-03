@@ -14,6 +14,7 @@ import PurchaseNFT from "./components/PurchaseNFT";
 import NFT from "./contracts/NFT.json";
 import Marketplace from "./contracts/Marketplace.json";
 import { Container, Row, Col, Alert, Card } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import "./App.css";
 
 const App = () => {
@@ -27,110 +28,130 @@ const App = () => {
   const [warnings, setWarnings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const init = async () => {
-      const warningsList = [];
-      let web3Instance;
+ useEffect(() => {
+  const init = async () => {
+    const warningsList = [];
+    let web3Instance;
 
-      // ✅ Initialize Web3
+    try {
+      // Prefer injected provider if available, otherwise use a public/read-only RPC
       if (window.ethereum) {
         web3Instance = new Web3(window.ethereum);
-        try {
-          await window.ethereum.request({ method: "eth_requestAccounts" });
-        } catch (error) {
-          warningsList.push({
-            type: "warning",
-            title: "Wallet Connection",
-            message:
-              "Wallet connection denied. Please connect your wallet to interact with NFTs.",
-          });
-        }
-      } else if (window.web3) {
-        web3Instance = new Web3(window.web3.currentProvider);
       } else {
-        const provider = new Web3.providers.HttpProvider(
-          "https://eth-sepolia.g.alchemy.com/v2/LHwg7AgqTPwWyAGADjmo-ybadURIEy12"
-        );
+        const publicRpcUrl =
+          process.env.REACT_APP_PUBLIC_RPC_URL ||
+          // Reasonable default public RPC; replace with your project RPC for reliability
+          "https://rpc.ankr.com/eth_sepolia";
+        const provider = new Web3.providers.HttpProvider(publicRpcUrl);
         web3Instance = new Web3(provider);
-        warningsList.push({
-          type: "info",
-          title: "No Wallet Detected",
-          message:
-            "No Web3 wallet detected. Using Alchemy Sepolia provider. Please install MetaMask for full functionality.",
-        });
       }
 
       setWeb3(web3Instance);
 
-      // ✅ Listen to account and network changes
-      if (window.ethereum) {
-        const handleAccountsChanged = (newAccounts) => {
-          setAccounts(newAccounts);
-          setAccount(newAccounts[0]);
-          console.log("🔁 Account changed:", newAccounts[0]);
-        };
-
-        const handleChainChanged = () => {
-          console.log("🔁 Network changed, reloading...");
-          window.location.reload();
-        };
-
-        window.ethereum.on("accountsChanged", handleAccountsChanged);
-        window.ethereum.on("chainChanged", handleChainChanged);
-
-        // 🧹 Cleanup listeners on unmount
-        return () => {
-          window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
-          window.ethereum.removeListener("chainChanged", handleChainChanged);
-        };
-      }
-
+      // Do NOT force-connect on load; just read any existing accounts
+      let fetchedAccounts = [];
       try {
-        // ✅ Hardcoded Sepolia contract addresses
-        const NFT_ADDRESS = "0x19D791b89E653AAEA09332e6503c76F1EF2fAb44";
-        const MARKETPLACE_ADDRESS = "0x6fcc1453319D9627d96f91eF1177ea9B7325Ca34";
-
-        // ✅ Create contract instances
-        const nft = new web3Instance.eth.Contract(NFT.abi, NFT_ADDRESS);
-        const marketplace = new web3Instance.eth.Contract(
-          Marketplace.abi,
-          MARKETPLACE_ADDRESS
-        );
-
-        setNftContract(nft);
-        setMarketplaceContract(marketplace);
-        setNftAddress(NFT_ADDRESS);
-        setMarketplaceAddress(MARKETPLACE_ADDRESS);
-
-        // ✅ Load accounts
-        const accs = await web3Instance.eth.getAccounts();
-        setAccounts(accs);
-        setAccount(accs[0]);
-
-        if (accs.length === 0) {
-          warningsList.push({
-            type: "warning",
-            title: "No Account Found",
-            message: "No accounts detected. Please unlock your wallet.",
-          });
-        }
-      } catch (error) {
-        warningsList.push({
-          type: "danger",
-          title: "Initialization Error",
-          message: `Failed to initialize contracts: ${error.message}`,
-        });
+        fetchedAccounts = await web3Instance.eth.getAccounts();
+      } catch (_) {
+        fetchedAccounts = [];
       }
+      setAccounts(fetchedAccounts);
+      setAccount(fetchedAccounts[0] || null);
 
-      setWarnings(warningsList);
-      setIsLoading(false);
-    };
+      // ✅ Hardcode your deployed contract addresses
+      const nftAddress = "0x19D791b89E653AAEA09332e6503c76F1EF2fAb44";
+      const marketplaceAddress = "0x6fcc1453319D9627d96f91eF1177ea9B7325Ca34";
 
-    init();
-  }, []);
+      // Always initialize contracts so addresses are visible even if wallet is not connected
+      const nft = new web3Instance.eth.Contract(NFT.abi, nftAddress);
+      const marketplace = new web3Instance.eth.Contract(Marketplace.abi, marketplaceAddress);
 
+      setNftContract(nft);
+      setMarketplaceContract(marketplace);
+      setNftAddress(nftAddress);
+      setMarketplaceAddress(marketplaceAddress);
+    } catch (error) {
+      console.error("Error initializing app:", error);
+      warningsList.push({
+        type: 'danger',
+        title: 'Initialization Error',
+        message: error.message,
+      });
+    }
+
+    setWarnings(warningsList);
+    setIsLoading(false);
+  };
+
+  init();
+}, []);
+
+ // React to MetaMask account / network changes without page refresh
+ useEffect(() => {
+  if (!window.ethereum) return;
+
+  const handleAccountsChanged = (nextAccounts) => {
+    setAccounts(nextAccounts || []);
+    setAccount((nextAccounts && nextAccounts[0]) || null);
+  };
+
+  const handleChainChanged = () => {
+    // Re-bind web3 to the injected provider so reads use the new network
+    try {
+      const nextWeb3 = new Web3(window.ethereum);
+      setWeb3(nextWeb3);
+    } catch (_) {}
+  };
+
+  const handleDisconnect = () => {
+    handleAccountsChanged([]);
+  };
+
+  window.ethereum.on('accountsChanged', handleAccountsChanged);
+  window.ethereum.on('chainChanged', handleChainChanged);
+  window.ethereum.on('disconnect', handleDisconnect);
+
+  return () => {
+    if (!window.ethereum) return;
+    window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+    window.ethereum.removeListener('chainChanged', handleChainChanged);
+    window.ethereum.removeListener('disconnect', handleDisconnect);
+  };
+ }, []);
+
+ const [copied, setCopied] = useState("");
+
+  const handleCopy = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+      setTimeout(() => setCopied(""), 1500); // Reset after 1.5 sec
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
   const handleAccountChange = (event) => {
     setAccount(event.target.value);
+  };
+
+  const connectWallet = async () => {
+    if (!window.ethereum) {
+      setWarnings([{ type: 'warning', title: 'Wallet not found', message: 'Install MetaMask to connect.' }]);
+      return;
+    }
+    try {
+      const nextAccounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      setAccounts(nextAccounts || []);
+      setAccount((nextAccounts && nextAccounts[0]) || null);
+    } catch (err) {
+      setWarnings([{ type: 'danger', title: 'Connection rejected', message: err.message }]);
+    }
+  };
+
+  const disconnectWallet = () => {
+    // MetaMask doesn't support programmatic disconnect. We clear local state.
+    setAccounts([]);
+    setAccount(null);
   };
 
   return (
@@ -140,6 +161,8 @@ const App = () => {
           accounts={accounts}
           account={account}
           handleAccountChange={handleAccountChange}
+          onConnectWallet={connectWallet}
+          onDisconnectWallet={disconnectWallet}
         />
 
         <Container className="mt-5 mb-5">
@@ -181,30 +204,57 @@ const App = () => {
                     <span className="title-icon">📝</span> Contract Information
                   </Card.Title>
                   <Row>
-                    <Col md={6}>
-                      <div className="contract-info">
-                        <strong>NFT Contract:</strong>
-                        <div className="contract-address">
-                          {nftAddress ? (
-                            <code>{nftAddress}</code>
-                          ) : (
-                            <span className="text-muted">Not deployed</span>
-                          )}
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md={6}>
-                      <div className="contract-info">
-                        <strong>Marketplace Contract:</strong>
-                        <div className="contract-address">
-                          {marketplaceAddress ? (
-                            <code>{marketplaceAddress}</code>
-                          ) : (
-                            <span className="text-muted">Not deployed</span>
-                          )}
-                        </div>
-                      </div>
-                    </Col>
+                     <Col md={6}>
+        <div className="contract-info">
+          <strong>NFT Contract:</strong>
+          <div className="contract-address d-flex align-items-center gap-2">
+            {nftAddress ? (
+              <>
+                <code>{nftAddress}</code>
+                <Button
+                  size="sm"
+                  variant="outline-secondary"
+                  onClick={() => handleCopy(nftAddress, "nft")}
+                >
+                  📋
+                </Button>
+                {copied === "nft" && (
+                  <span className="text-success small">Copied!</span>
+                )}
+              </>
+            ) : (
+              <span className="text-muted">Not deployed</span>
+            )}
+          </div>
+        </div>
+      </Col>
+
+      <Col md={6}>
+        <div className="contract-info">
+          <strong>Marketplace Contract:</strong>
+          <div className="contract-address d-flex align-items-center gap-2">
+            {marketplaceAddress ? (
+              <>
+                <code>{marketplaceAddress}</code>
+                <Button
+                  size="sm"
+                  variant="outline-secondary"
+                  onClick={() =>
+                    handleCopy(marketplaceAddress, "marketplace")
+                  }
+                >
+                  📋
+                </Button>
+                {copied === "marketplace" && (
+                  <span className="text-success small">Copied!</span>
+                )}
+              </>
+            ) : (
+              <span className="text-muted">Not deployed</span>
+            )}
+          </div>
+        </div>
+      </Col>
                   </Row>
                 </Card.Body>
               </Card>

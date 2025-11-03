@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-const CustomNavbar = ({ accounts = [], account, handleAccountChange }) => {
+const CustomNavbar = ({ accounts = [], account, handleAccountChange, onConnectWallet, onDisconnectWallet }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const location = useLocation();
@@ -227,82 +227,141 @@ const CustomNavbar = ({ accounts = [], account, handleAccountChange }) => {
               </div>
             </div>
 
-            {/* Account Dropdown - Desktop */}
-            <div className="desktop-nav" style={{
-              position: 'relative'
-            }}>
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '0.625rem 1.25rem',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  color: 'white',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  transition: 'transform 0.2s ease'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <WalletIcon />
-                <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {account ? `${account.slice(0, 6)}...${account.slice(-4)}` : 'Not Connected'}
-                </span>
-                <ChevronDownIcon />
-              </button>
+            {/* Account - Desktop */}
+            <div className="desktop-nav" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              {account ? (
+                <>
+                  <button
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.625rem 1.25rem',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      border: 'none',
+                      borderRadius: '0.5rem',
+                      color: 'white',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      transition: 'transform 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  >
+                    <WalletIcon />
+                    <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {`${account.slice(0, 6)}...${account.slice(-4)}`}
+                    </span>
+                    <ChevronDownIcon />
+                  </button>
 
-              {isDropdownOpen && accounts.length > 0 && (
-                <div
-                  className="dropdown-menu"
+                  {isDropdownOpen && (
+                    <div
+                      className="dropdown-menu"
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 0.5rem)',
+                        right: 0,
+                        background: 'white',
+                        borderRadius: '0.5rem',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+                        minWidth: '250px',
+                        overflow: 'hidden',
+                        zIndex: 1000
+                      }}
+                    >
+                      {accounts.length > 0 && (
+                        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0e0e0', fontWeight: '600', color: '#333' }}>
+                          Select Account
+                        </div>
+                      )}
+                      {accounts.map((acc) => (
+                        <button
+                          key={acc}
+                          onClick={() => {
+                            handleAccountChange({ target: { value: acc } });
+                            setIsDropdownOpen(false);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            background: acc === account ? '#f5f5f5' : 'white',
+                            border: 'none',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontFamily: 'monospace',
+                            fontSize: '0.85rem',
+                            color: '#333',
+                            transition: 'background 0.2s ease',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = acc === account ? '#f5f5f5' : 'white'}
+                        >
+                          {acc}
+                        </button>
+                      ))}
+                      <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid #e0e0e0' }}>
+                        <button
+                          onClick={() => { setIsDropdownOpen(false); onDisconnectWallet && onDisconnectWallet(); }}
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem 0.75rem',
+                            background: '#fce7e7',
+                            color: '#b42323',
+                            border: '1px solid #f5c2c2',
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer',
+                            fontWeight: 600
+                          }}
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Always-visible Disconnect button next to chip */}
+                  <button
+                    onClick={() => onDisconnectWallet && onDisconnectWallet()}
+                    style={{
+                      padding: '0.55rem 0.9rem',
+                      background: 'transparent',
+                      color: '#ffb3b3',
+                      border: '1px solid rgba(255,255,255,0.25)',
+                      borderRadius: '0.5rem',
+                      cursor: 'pointer',
+                      fontWeight: 600
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => onConnectWallet && onConnectWallet()}
                   style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 0.5rem)',
-                    right: 0,
-                    background: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.625rem 1.25rem',
+                    background: 'linear-gradient(135deg, #34d399 0%, #10b981 100%)',
+                    border: 'none',
                     borderRadius: '0.5rem',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                    minWidth: '250px',
-                    overflow: 'hidden',
-                    zIndex: 1000
+                    color: 'white',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem'
                   }}
                 >
-                  <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0e0e0', fontWeight: '600', color: '#333' }}>
-                    Select Account
-                  </div>
-                  {accounts.map((acc) => (
-                    <button
-                      key={acc}
-                      onClick={() => {
-                        handleAccountChange({ target: { value: acc } });
-                        setIsDropdownOpen(false);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem 1rem',
-                        background: acc === account ? '#f5f5f5' : 'white',
-                        border: 'none',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        fontFamily: 'monospace',
-                        fontSize: '0.85rem',
-                        color: '#333',
-                        transition: 'background 0.2s ease',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = acc === account ? '#f5f5f5' : 'white'}
-                    >
-                      {acc}
-                    </button>
-                  ))}
-                </div>
+                  <WalletIcon />
+                  Connect Wallet
+                </button>
               )}
             </div>
 
@@ -383,6 +442,22 @@ const CustomNavbar = ({ accounts = [], account, handleAccountChange }) => {
                   }}>
                     {account || 'Not Connected'}
                   </div>
+                  <button
+                    onClick={() => (account ? (onDisconnectWallet && onDisconnectWallet()) : (onConnectWallet && onConnectWallet()))}
+                    style={{
+                      width: '100%',
+                      marginTop: '0.75rem',
+                      padding: '0.75rem',
+                      background: account ? '#fce7e7' : 'linear-gradient(135deg, #34d399 0%, #10b981 100%)',
+                      color: account ? '#b42323' : 'white',
+                      border: account ? '1px solid #f5c2c2' : 'none',
+                      borderRadius: '0.375rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {account ? 'Disconnect' : 'Connect Wallet'}
+                  </button>
                   {accounts.length > 1 && (
                     <select
                       value={account}
