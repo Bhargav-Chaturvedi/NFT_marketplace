@@ -1,16 +1,31 @@
+require('dotenv').config();
+const { MNEMONIC, PROJECT_ID } = process.env;
+
+const HDWalletProvider = require('@truffle/hdwallet-provider');
+
+console.log('Mnemonic:', MNEMONIC);
+console.log('Project ID:', PROJECT_ID);
+
 module.exports = {
+  contracts_build_directory: "./client/src/contracts",
   networks: {
-    localhost: {
-      host: "127.0.0.1",
-      port: 7545,
-      network_id: "5777",
-      gas: 10000000,  // Set the gas limit higher to match the block limit
-      gasPrice: 20000000000,  // Optional gas price
+    sepolia: {
+      provider: () => {
+        const providerURL = `wss://eth-sepolia.g.alchemy.com/v2/${PROJECT_ID}`;
+        console.log('Provider URL:', providerURL);
+        return new HDWalletProvider(MNEMONIC, providerURL);
+      },
+      network_id: '11155111', // Sepolia's network id
+      gas: 6000000,           // Increase gas limit to 6,000,000
+      gasPrice: 100000000,  // 20 Gwei
+      confirmations: 2,       // Number of confirmations to wait between deployments
+      timeoutBlocks: 500,     // Number of blocks to wait before timing out
+      skipDryRun: true        // Skip dry run before migrations? (default: false for public nets)
     },
   },
   compilers: {
     solc: {
-      version: "0.8.13",  // Ensure you're using the correct version of Solidity
-    },
+      version: "0.8.20",
+    }
   },
 };
