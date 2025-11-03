@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -28,27 +28,29 @@ contract Marketplace is Ownable {
         bool sold
     );
 
-    constructor() Ownable() {}
+    constructor() Ownable(msg.sender) {}
 
     function createMarketItem(
         address nftContract,
         uint32 tokenId,
         uint128 price
-    ) public payable {
+    ) external {
         require(price > 0, "Price must be at least 1 wei");
 
-        itemCounter += 1;
-        uint32 itemId = itemCounter;
+        unchecked {
+            itemCounter++;
+        }
 
-        marketItems[itemId] = MarketItem(
-            itemId,
-            nftContract,
-            tokenId,
-            payable(msg.sender),
-            payable(address(0)),
-            price,
-            false
-        );
+        uint32 itemId = itemCounter;
+        marketItems[itemId] = MarketItem({
+            itemId: itemId,
+            nftContract: nftContract,
+            tokenId: tokenId,
+            seller: payable(msg.sender),
+            owner: payable(address(0)),
+            price: price,
+            sold: false
+        });
 
         IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
 
@@ -63,36 +65,32 @@ contract Marketplace is Ownable {
         );
     }
 
-    function purchaseMarketItem(uint32 itemId) public payable {
+    function purchaseMarketItem(uint32 itemId) external payable {
         MarketItem storage item = marketItems[itemId];
-        require(msg.value == item.price, "Please submit the asking price");
+        uint128 price = item.price;
+        require(msg.value == price, "Incorrect price");
+        require(!item.sold, "Already sold");
 
-        item.seller.transfer(msg.value);
-        IERC721(item.nftContract).transferFrom(address(this), msg.sender, item.tokenId);
-        item.owner = payable(msg.sender);
         item.sold = true;
+        item.owner = payable(msg.sender);
+
+        // Transfer funds and NFT
+        item.seller.transfer(price);
+        IERC721(item.nftContract).transferFrom(address(this), msg.sender, item.tokenId);
     }
 
-    function getUserNFTs(address user) public view returns (MarketItem[] memory) {
-        uint32 itemCount = itemCounter;
-        uint32 userItemCount = 0;
-        uint32 currentIndex = 0;
-
-        // Count the number of NFTs owned by the user
-        for (uint32 i = 1; i <= itemCount; i++) {
-            if (marketItems[i].owner == user) {
-                userItemCount += 1;
-            }
+    function getUserNFTs(address user) external view returns (MarketItem[] memory) {
+        uint32 totalItems = itemCounter;
+        uint32 count;
+        for (uint32 i = 1; i <= totalItems; i++) {
+            if (marketItems[i].owner == user) count++;
         }
 
-        // Create an array to hold the user's NFTs
-        MarketItem[] memory userItems = new MarketItem[](userItemCount);
-
-        // Populate the array with the user's NFTs
-        for (uint32 i = 1; i <= itemCount; i++) {
+        MarketItem[] memory userItems = new MarketItem[](count);
+        uint32 j;
+        for (uint32 i = 1; i <= totalItems; i++) {
             if (marketItems[i].owner == user) {
-                userItems[currentIndex] = marketItems[i];
-                currentIndex += 1;
+                userItems[j++] = marketItems[i];
             }
         }
 
